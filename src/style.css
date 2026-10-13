@@ -197,6 +197,20 @@ canvas.game-canvas {
   font-weight: 800;
   padding: 10px 18px;
   letter-spacing: 0.04em;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.source-link {
+  background: #1e1b4b;
+  border-color: #6366f1;
+  color: #e0e7ff;
+}
+
+.source-link:focus-visible {
+  outline: 3px solid #67e8f9;
+  outline-offset: 2px;
 }
 
 .primary-button {

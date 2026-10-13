@@ -7,6 +7,9 @@ interface FakeElement {
   innerHTML: string;
   hidden: boolean;
   type: string;
+  href: string;
+  target: string;
+  rel: string;
   tabIndex: number;
   width: number;
   height: number;
@@ -87,6 +90,9 @@ function createFakeElement(
     innerHTML: '',
     hidden: false,
     type: '',
+    href: '',
+    target: '',
+    rel: '',
     tabIndex: -1,
     width: 480,
     height: 640,
@@ -241,6 +247,11 @@ describe('Application cabinet bootstrap (src/main.ts)', () => {
     const muteButton = findButtonByText('Mute');
     const resumeButton = findButtonByText('Resume');
     const restartButton = findButtonByText('Restart');
+    const sourceLinkElement = allElements.find(
+      (element) => element.tagName === 'a' && element.className.includes('source-link'),
+    );
+    expect(sourceLinkElement?.href).toBe('https://github.com/mtschoen/breakout');
+    expect(sourceLinkElement?.target).toBe('_blank');
     const canvasElement = allElements.find((element) => element.tagName === 'canvas')!;
 
     // Trigger reduced-motion preference change

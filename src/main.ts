@@ -146,7 +146,12 @@ export function boot(): { game: Game; audioEngine: AudioEngine } {
   muteButton.type = 'button';
   const controlsRestartButton = createElement('button', 'control-button', 'Restart');
   controlsRestartButton.type = 'button';
-  controlsBar.append(pauseButton, muteButton, controlsRestartButton);
+  const sourceLink = createElement('a', 'control-button source-link', 'GitHub ↗');
+  sourceLink.href = 'https://github.com/mtschoen/breakout';
+  sourceLink.target = '_blank';
+  sourceLink.rel = 'noopener noreferrer';
+  sourceLink.setAttribute('aria-label', 'View Prism Breakout on GitHub (opens in a new tab)');
+  controlsBar.append(pauseButton, muteButton, controlsRestartButton, sourceLink);
 
   const helpText = createElement(
     'p',
