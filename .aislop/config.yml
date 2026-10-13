@@ -1,0 +1,6 @@
+ci:
+  failBelow: 80
+exclude:
+  - 'dist/**'
+  - 'coverage/**'
+  - 'node_modules/**'

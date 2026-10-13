@@ -1,0 +1,6 @@
+dist/
+coverage/
+node_modules/
+.claude/
+.agent-lock/
+package-lock.json

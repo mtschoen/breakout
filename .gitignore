@@ -1,0 +1,11 @@
+.agent-lock/
+.worktree-reserved
+node_modules/
+dist/
+.venv/
+coverage/
+.claude/*
+!.claude/settings.json
+!.maintenance.json
+preview.log
+*.local

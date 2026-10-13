@@ -1,0 +1,8 @@
+* text=auto
+
+# Shell scripts must check out with LF on every platform.
+*.sh text eol=lf
+
+# Batch files must check out with CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
