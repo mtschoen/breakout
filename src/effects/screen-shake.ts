@@ -1,6 +1,7 @@
 export interface ScreenShakeOptions {
   maximumOffsetPixels?: number;
   decayPerSecond?: number;
+  intensityMultiplier?: number;
   reducedMotion?: boolean;
   random?: () => number;
 }
@@ -10,6 +11,7 @@ export class ScreenShake {
   public readonly decayPerSecond: number;
 
   private isReducedMotion: boolean;
+  private currentIntensityMultiplier: number;
   private traumaValue: number = 0;
   private currentOffsetX: number = 0;
   private currentOffsetY: number = 0;
@@ -18,6 +20,7 @@ export class ScreenShake {
   constructor(options?: ScreenShakeOptions) {
     this.maximumOffsetPixels = options?.maximumOffsetPixels ?? 14;
     this.decayPerSecond = options?.decayPerSecond ?? 1.6;
+    this.currentIntensityMultiplier = Math.max(0, options?.intensityMultiplier ?? 1);
     this.isReducedMotion = options?.reducedMotion ?? false;
     this.random = options?.random ?? Math.random;
   }
@@ -32,6 +35,15 @@ export class ScreenShake {
 
   public get offsetY(): number {
     return this.currentOffsetY;
+  }
+
+  public get intensityMultiplier(): number {
+    return this.currentIntensityMultiplier;
+  }
+
+  public set intensityMultiplier(value: number) {
+    this.currentIntensityMultiplier = Math.max(0, value);
+    this.computeOffsets();
   }
 
   public get reducedMotion(): boolean {
@@ -75,12 +87,12 @@ export class ScreenShake {
   }
 
   private computeOffsets(): void {
-    if (this.isReducedMotion || this.traumaValue <= 0) {
+    if (this.isReducedMotion || this.traumaValue <= 0 || this.currentIntensityMultiplier <= 0) {
       this.currentOffsetX = 0;
       this.currentOffsetY = 0;
       return;
     }
-    const shakeIntensity = this.traumaValue * this.traumaValue;
+    const shakeIntensity = this.traumaValue * this.traumaValue * this.currentIntensityMultiplier;
     this.currentOffsetX = (this.random() * 2 - 1) * this.maximumOffsetPixels * shakeIntensity;
     this.currentOffsetY = (this.random() * 2 - 1) * this.maximumOffsetPixels * shakeIntensity;
   }

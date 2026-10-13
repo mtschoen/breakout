@@ -2,11 +2,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 interface FakeElement {
   tagName: string;
+  id: string;
   className: string;
   textContent: string;
   innerHTML: string;
   hidden: boolean;
+  disabled: boolean;
   type: string;
+  min: string;
+  max: string;
+  step: string;
+  value: string;
   href: string;
   target: string;
   rel: string;
@@ -85,11 +91,17 @@ function createFakeElement(
 
   const element: FakeElement = {
     tagName: tagName.toLowerCase(),
+    id: '',
     className: '',
     textContent: '',
     innerHTML: '',
     hidden: false,
+    disabled: false,
     type: '',
+    min: '',
+    max: '',
+    step: '',
+    value: '',
     href: '',
     target: '',
     rel: '',
@@ -238,8 +250,13 @@ describe('Application cabinet bootstrap (src/main.ts)', () => {
     const launchRunButton = findButtonByText('Launch Run');
     const pauseButton = findButtonByText('Pause');
     const muteButton = findButtonByText('Mute');
+    const settingsButton = findButtonByText('Settings');
     const resumeButton = findButtonByText('Resume');
     const restartButton = findButtonByText('Restart');
+    const testMixButton = findButtonByText('Test Mix');
+    const resetJuiceButton = findButtonByText('Reset 100%');
+    const doneButton = findButtonByText('Done');
+    const reducedMotionButton = findButtonByText('Reduced Motion: Off');
     const sourceLinkElement = allElements.find(
       (element) => element.tagName === 'a' && element.className.includes('source-link'),
     );
@@ -261,6 +278,25 @@ describe('Application cabinet bootstrap (src/main.ts)', () => {
     firstFrame(100);
     const secondFrame = scheduledFrameCallbacks.shift()!;
     secondFrame(116);
+
+    // Exercise Settings & Juice Lab controls
+    settingsButton.dispatch('click');
+    expect(pauseButton.textContent).toBe('Resume');
+    const rangeSliders = allElements.filter(
+      (element) => element.tagName === 'input' && element.className === 'setting-range',
+    );
+    expect(rangeSliders).toHaveLength(3);
+    for (const slider of rangeSliders) {
+      slider.value = '150';
+      slider.dispatch('input');
+    }
+    testMixButton.dispatch('click');
+    reducedMotionButton.dispatch('click');
+    expect(reducedMotionButton.textContent).toBe('Reduced Motion: On');
+    resetJuiceButton.dispatch('click');
+    expect(reducedMotionButton.textContent).toBe('Reduced Motion: Off');
+    doneButton.dispatch('click');
+    resumeButton.dispatch('click');
 
     // Exercise touch buttons (pointerdown, pointerup, and keyboard click detail=0)
     const touchButtons = allElements.filter(
@@ -329,11 +365,32 @@ describe('Application cabinet bootstrap (src/main.ts)', () => {
     launchRunButton.dispatch('click');
 
     // Test storage helpers and gameOver overlay state transition
-    const { readStoredHighScore, writeStoredHighScore, autoBoot } = await import('../src/main');
+    const {
+      readStoredHighScore,
+      writeStoredHighScore,
+      readStoredJuiceSettings,
+      writeStoredJuiceSettings,
+      autoBoot,
+    } = await import('../src/main');
     writeStoredHighScore(9900);
     expect(readStoredHighScore()).toBe(9900);
+    writeStoredJuiceSettings({
+      particleDensity: 1.5,
+      particleSize: 1.2,
+      screenShake: 0.5,
+      reducedMotion: true,
+    });
+    expect(readStoredJuiceSettings()).toEqual({
+      particleDensity: 1.5,
+      particleSize: 1.2,
+      screenShake: 0.5,
+      reducedMotion: true,
+    });
+    storageMap.set('prism-breakout.juice-settings', '{"particleDensity":"invalid"}');
+    expect(readStoredJuiceSettings().particleDensity).toBe(1);
     storageMap.clear();
     expect(readStoredHighScore()).toBe(0);
+    expect(readStoredJuiceSettings().screenShake).toBe(1);
 
     fakeWindow.localStorage = {
       getItem: () => {
@@ -344,7 +401,16 @@ describe('Application cabinet bootstrap (src/main.ts)', () => {
       },
     };
     expect(readStoredHighScore()).toBe(0);
+    expect(readStoredJuiceSettings().particleDensity).toBe(1);
     expect(() => writeStoredHighScore(500)).not.toThrow();
+    expect(() =>
+      writeStoredJuiceSettings({
+        particleDensity: 1,
+        particleSize: 1,
+        screenShake: 1,
+        reducedMotion: false,
+      }),
+    ).not.toThrow();
 
     // Boot a fresh instance and drive it to game over to cover gameOverOverlay update
     const secondRun = boot();

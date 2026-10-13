@@ -188,6 +188,95 @@ canvas.game-canvas {
   color: #fde047;
 }
 
+.settings-overlay {
+  background: rgba(4, 7, 18, 0.56);
+  padding: 16px;
+}
+
+.settings-panel {
+  width: min(100%, 380px);
+  background: rgba(11, 20, 42, 0.94);
+  border: 1px solid #38bdf8;
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.72);
+}
+
+.settings-eyebrow {
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: #f472b6;
+  text-transform: uppercase;
+}
+
+.settings-panel h2 {
+  font-size: 1.45rem;
+  margin-top: -6px;
+}
+
+.settings-sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.setting-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.setting-value {
+  color: #67e8f9;
+  font-variant-numeric: tabular-nums;
+}
+
+.setting-range {
+  width: 100%;
+  accent-color: #38bdf8;
+  cursor: pointer;
+}
+
+.setting-range:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.settings-toggle-button {
+  width: 100%;
+  justify-content: center;
+  padding: 8px 14px;
+  font-size: 0.84rem;
+}
+
+.settings-panel .settings-hint {
+  font-size: 0.76rem;
+  color: #94a3b8;
+  max-width: none;
+}
+
+.settings-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
 .primary-button,
 .control-button {
   border: 1px solid #475569;

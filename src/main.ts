@@ -3,10 +3,26 @@ import { AudioEngine } from './audio/audio-engine';
 import { InputState, type TouchControl } from './engine/input';
 import { startLoop } from './engine/loop';
 import { Game } from './game/game';
-import { PLAY_FIELD_HEIGHT, PLAY_FIELD_WIDTH } from './game/types';
+import { PLAY_FIELD_HEIGHT, PLAY_FIELD_WIDTH, type JuiceSettings } from './game/types';
 import { Renderer } from './render/renderer';
 
 const HIGH_SCORE_STORAGE_KEY = 'prism-breakout.high-score';
+const JUICE_SETTINGS_STORAGE_KEY = 'prism-breakout.juice-settings';
+
+export const DEFAULT_JUICE_SETTINGS: Readonly<JuiceSettings> = {
+  particleDensity: 1,
+  particleSize: 1,
+  screenShake: 1,
+  reducedMotion: false,
+};
+
+type JuiceNumericKey = 'particleDensity' | 'particleSize' | 'screenShake';
+
+const JUICE_SLIDER_DEFINITIONS: readonly { key: JuiceNumericKey; label: string }[] = [
+  { key: 'particleDensity', label: 'Particle density' },
+  { key: 'particleSize', label: 'Particle size' },
+  { key: 'screenShake', label: 'Screen shake' },
+];
 
 function createElement<K extends keyof HTMLElementTagNameMap>(
   tagName: K,
@@ -21,6 +37,12 @@ function createElement<K extends keyof HTMLElementTagNameMap>(
   return element;
 }
 
+function createButton(className: string, textContent = ''): HTMLButtonElement {
+  const button = createElement('button', className, textContent);
+  button.type = 'button';
+  return button;
+}
+
 function buildHudItem(
   label: string,
   valueClassName = 'hud-value',
@@ -30,6 +52,13 @@ function buildHudItem(
   const value = createElement('span', valueClassName, '-');
   item.append(labelElement, value);
   return { item, value };
+}
+
+function clampMultiplier(value: unknown, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.min(3, Math.max(0, value));
 }
 
 export function readStoredHighScore(): number {
@@ -53,6 +82,38 @@ export function writeStoredHighScore(highScore: number): void {
   }
 }
 
+export function readStoredJuiceSettings(): JuiceSettings {
+  try {
+    const rawValue = window.localStorage.getItem(JUICE_SETTINGS_STORAGE_KEY);
+    if (rawValue === null) {
+      return { ...DEFAULT_JUICE_SETTINGS };
+    }
+    const parsed = JSON.parse(rawValue) as Partial<JuiceSettings>;
+    return {
+      particleDensity: clampMultiplier(
+        parsed.particleDensity,
+        DEFAULT_JUICE_SETTINGS.particleDensity,
+      ),
+      particleSize: clampMultiplier(parsed.particleSize, DEFAULT_JUICE_SETTINGS.particleSize),
+      screenShake: clampMultiplier(parsed.screenShake, DEFAULT_JUICE_SETTINGS.screenShake),
+      reducedMotion:
+        typeof parsed.reducedMotion === 'boolean'
+          ? parsed.reducedMotion
+          : DEFAULT_JUICE_SETTINGS.reducedMotion,
+    };
+  } catch {
+    return { ...DEFAULT_JUICE_SETTINGS };
+  }
+}
+
+export function writeStoredJuiceSettings(settings: JuiceSettings): void {
+  try {
+    window.localStorage.setItem(JUICE_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  } catch {
+    // Storage may be unavailable in restricted browsing modes.
+  }
+}
+
 export function boot(): { game: Game; audioEngine: AudioEngine } {
   if (typeof __BUILD_IDENTIFIER__ === 'string') {
     document.documentElement.dataset.buildId = __BUILD_IDENTIFIER__;
@@ -63,13 +124,15 @@ export function boot(): { game: Game; audioEngine: AudioEngine } {
     throw new Error('Missing #app element');
   }
 
+  const juiceSettings = readStoredJuiceSettings();
   const audioEngine = new AudioEngine();
   const game = new Game({
     audio: audioEngine,
     initialHighScore: readStoredHighScore(),
     onHighScoreChange: writeStoredHighScore,
-    reducedMotion: false,
+    reducedMotion: juiceSettings.reducedMotion,
   });
+  game.setJuiceSettings(juiceSettings);
   const input = new InputState();
 
   const cabinet = createElement('main', 'cabinet');
@@ -107,35 +170,122 @@ export function boot(): { game: Game; audioEngine: AudioEngine } {
     '',
     'Shatter neon synthwave formations, chain harmonic combos into 2x Shatter Fever, and tap Space right before impact for a Prism Smash parry boost!',
   );
-  const startButton = createElement('button', 'primary-button', 'Launch Run');
-  startButton.type = 'button';
+  const startButton = createButton('primary-button', 'Launch Run');
   startOverlay.append(startTitle, startText, startButton);
 
   const pauseOverlay = createElement('div', 'overlay');
   pauseOverlay.hidden = true;
   const pauseTitle = createElement('h2', '', 'Paused');
-  const resumeButton = createElement('button', 'primary-button', 'Resume');
-  resumeButton.type = 'button';
+  const resumeButton = createButton('primary-button', 'Resume');
   pauseOverlay.append(pauseTitle, resumeButton);
 
   const gameOverOverlay = createElement('div', 'overlay');
   gameOverOverlay.hidden = true;
   const gameOverTitle = createElement('h2', '', 'Shattered');
   const finalScore = createElement('p', 'final-score', 'Score 0');
-  const restartButton = createElement('button', 'primary-button', 'Play Again');
-  restartButton.type = 'button';
+  const restartButton = createButton('primary-button', 'Play Again');
   gameOverOverlay.append(gameOverTitle, finalScore, restartButton);
 
-  stageFrame.append(canvas, startOverlay, pauseOverlay, gameOverOverlay);
+  const settingsOverlay = createElement('div', 'overlay settings-overlay');
+  settingsOverlay.hidden = true;
+  const settingsPanel = createElement('div', 'settings-panel');
+  const settingsEyebrow = createElement('span', 'settings-eyebrow', 'JUICE LAB');
+  const settingsTitle = createElement('h2', '', 'Your Mix');
+  const settingsHint = createElement(
+    'p',
+    'settings-hint',
+    'Tune the sparks and screen shake. 100% is the default mix.',
+  );
+  const slidersContainer = createElement('div', 'settings-sliders');
+  const sliderInputs = new Map<JuiceNumericKey, HTMLInputElement>();
+  const sliderOutputs = new Map<JuiceNumericKey, HTMLSpanElement>();
+
+  function syncJuiceControls(): void {
+    for (const { key } of JUICE_SLIDER_DEFINITIONS) {
+      const percent = Math.round(juiceSettings[key] * 100);
+      const slider = sliderInputs.get(key)!;
+      const output = sliderOutputs.get(key)!;
+      slider.value = String(percent);
+      slider.disabled = juiceSettings.reducedMotion;
+      output.textContent = `${percent}%`;
+    }
+    reducedMotionButton.textContent = juiceSettings.reducedMotion
+      ? 'Reduced Motion: On'
+      : 'Reduced Motion: Off';
+    settingsHint.textContent = juiceSettings.reducedMotion
+      ? 'Reduced motion is on. Turn it off to preview sparks and screen shake.'
+      : 'Tune the sparks and screen shake. 100% is the default mix.';
+  }
+
+  function applyAndSaveJuiceSettings(): void {
+    game.setJuiceSettings(juiceSettings);
+    writeStoredJuiceSettings(juiceSettings);
+    syncJuiceControls();
+  }
+
+  for (const { key, label } of JUICE_SLIDER_DEFINITIONS) {
+    const row = createElement('div', 'setting-group');
+    const headerRow = createElement('div', 'setting-label-row');
+    const labelElement = createElement('label', 'setting-label', label);
+    const sliderIdentifier = `juice-${key}`;
+    labelElement.setAttribute('for', sliderIdentifier);
+    const outputElement = createElement('span', 'setting-value', '100%');
+    headerRow.append(labelElement, outputElement);
+
+    const slider = createElement('input', 'setting-range');
+    slider.type = 'range';
+    slider.id = sliderIdentifier;
+    slider.min = '0';
+    slider.max = '300';
+    slider.step = '5';
+    slider.value = String(Math.round(juiceSettings[key] * 100));
+    slider.dataset.juiceKey = key;
+    slider.addEventListener('input', () => {
+      const parsedPercent = Number.parseFloat(slider.value);
+      if (Number.isFinite(parsedPercent)) {
+        juiceSettings[key] = clampMultiplier(parsedPercent / 100, DEFAULT_JUICE_SETTINGS[key]);
+        applyAndSaveJuiceSettings();
+      }
+    });
+
+    sliderInputs.set(key, slider);
+    sliderOutputs.set(key, outputElement);
+    row.append(headerRow, slider);
+    slidersContainer.append(row);
+  }
+
+  const reducedMotionButton = createButton('control-button settings-toggle-button');
+  reducedMotionButton.addEventListener('click', () => {
+    audioEngine.uiClick();
+    juiceSettings.reducedMotion = !juiceSettings.reducedMotion;
+    applyAndSaveJuiceSettings();
+  });
+
+  const settingsActions = createElement('div', 'settings-actions');
+  const previewJuiceButton = createButton('control-button', 'Test Mix');
+  const resetJuiceButton = createButton('control-button', 'Reset 100%');
+  const closeSettingsButton = createButton('primary-button', 'Done');
+  settingsActions.append(previewJuiceButton, resetJuiceButton, closeSettingsButton);
+
+  settingsPanel.append(
+    settingsEyebrow,
+    settingsTitle,
+    slidersContainer,
+    reducedMotionButton,
+    settingsHint,
+    settingsActions,
+  );
+  settingsOverlay.append(settingsPanel);
+  syncJuiceControls();
+
+  stageFrame.append(canvas, startOverlay, pauseOverlay, gameOverOverlay, settingsOverlay);
 
   const controlsBar = createElement('div', 'controls-bar');
-  const pauseButton = createElement('button', 'control-button', 'Pause');
-  pauseButton.type = 'button';
-  const muteButton = createElement('button', 'control-button', 'Mute');
-  muteButton.type = 'button';
-  const controlsRestartButton = createElement('button', 'control-button', 'Restart');
-  controlsRestartButton.type = 'button';
-  controlsBar.append(pauseButton, muteButton, controlsRestartButton);
+  const pauseButton = createButton('control-button', 'Pause');
+  const muteButton = createButton('control-button', 'Mute');
+  const settingsButton = createButton('control-button', 'Settings');
+  const controlsRestartButton = createButton('control-button', 'Restart');
+  controlsBar.append(pauseButton, muteButton, settingsButton, controlsRestartButton);
 
   const helpText = createElement(
     'p',
@@ -164,8 +314,7 @@ export function boot(): { game: Game; audioEngine: AudioEngine } {
     symbol: string,
     caption: string,
   ): HTMLButtonElement {
-    const button = createElement('button', 'touch-button');
-    button.type = 'button';
+    const button = createButton('touch-button');
     button.dataset.touchControl = control;
     button.setAttribute('aria-label', ariaLabel);
     const letterElement = createElement('span', 'touch-button-letter', symbol);
@@ -272,6 +421,7 @@ export function boot(): { game: Game; audioEngine: AudioEngine } {
   });
 
   let displayedState = '';
+  let settingsOpen = false;
 
   function refreshInterface(): void {
     const snapshot = game.getSnapshot();
@@ -283,29 +433,33 @@ export function boot(): { game: Game; audioEngine: AudioEngine } {
     pauseButton.textContent = snapshot.state === 'paused' ? 'Resume' : 'Pause';
     muteButton.textContent = audioEngine.isMuted ? 'Unmute' : 'Mute';
 
-    if (snapshot.state !== displayedState) {
-      displayedState = snapshot.state;
-      cabinet.classList.toggle('is-playing', snapshot.state === 'playing');
-      touchDeck.classList.toggle('is-visible', snapshot.state === 'playing');
-      if (snapshot.state !== 'playing') {
+    const compositeState = `${snapshot.state}:${settingsOpen ? 'settings' : 'normal'}`;
+    if (compositeState !== displayedState) {
+      displayedState = compositeState;
+      const isPlayingActive = snapshot.state === 'playing' && !settingsOpen;
+      cabinet.classList.toggle('is-playing', isPlayingActive);
+      touchDeck.classList.toggle('is-visible', isPlayingActive);
+      if (!isPlayingActive) {
         clearTouchButtons();
       }
-      startOverlay.hidden = snapshot.state !== 'ready';
-      pauseOverlay.hidden = snapshot.state !== 'paused';
-      gameOverOverlay.hidden = snapshot.state !== 'over';
+      settingsOverlay.hidden = !settingsOpen;
+      startOverlay.hidden = settingsOpen || snapshot.state !== 'ready';
+      pauseOverlay.hidden = settingsOpen || snapshot.state !== 'paused';
+      gameOverOverlay.hidden = settingsOpen || snapshot.state !== 'over';
       if (snapshot.state === 'over') {
         finalScore.textContent = `Score ${snapshot.score} - Stage ${snapshot.stage} (Best ${snapshot.highScore})`;
       }
-      if (snapshot.state === 'ready') {
+      if (!settingsOpen && snapshot.state === 'ready') {
         startButton.focus();
       }
-      if (snapshot.state === 'over') {
+      if (!settingsOpen && snapshot.state === 'over') {
         restartButton.focus();
       }
     }
   }
 
   function startRun(): void {
+    settingsOpen = false;
     audioEngine.handleUserGesture();
     audioEngine.unlock();
     game.start();
@@ -317,10 +471,12 @@ export function boot(): { game: Game; audioEngine: AudioEngine } {
   restartButton.addEventListener('click', startRun);
   controlsRestartButton.addEventListener('click', startRun);
   resumeButton.addEventListener('click', () => {
+    settingsOpen = false;
     game.resume();
     refreshInterface();
   });
   pauseButton.addEventListener('click', () => {
+    settingsOpen = false;
     game.togglePause();
     refreshInterface();
   });
@@ -329,11 +485,38 @@ export function boot(): { game: Game; audioEngine: AudioEngine } {
     audioEngine.uiClick();
     refreshInterface();
   });
+  settingsButton.addEventListener('click', () => {
+    audioEngine.handleUserGesture();
+    audioEngine.uiClick();
+    if (!settingsOpen && game.getSnapshot().state === 'playing') {
+      game.pause();
+    }
+    settingsOpen = !settingsOpen;
+    refreshInterface();
+  });
+  closeSettingsButton.addEventListener('click', () => {
+    audioEngine.uiClick();
+    settingsOpen = false;
+    refreshInterface();
+  });
+  previewJuiceButton.addEventListener('click', () => {
+    audioEngine.handleUserGesture();
+    audioEngine.unlock();
+    game.previewJuiceImpact();
+  });
+  resetJuiceButton.addEventListener('click', () => {
+    audioEngine.uiClick();
+    juiceSettings.particleDensity = DEFAULT_JUICE_SETTINGS.particleDensity;
+    juiceSettings.particleSize = DEFAULT_JUICE_SETTINGS.particleSize;
+    juiceSettings.screenShake = DEFAULT_JUICE_SETTINGS.screenShake;
+    juiceSettings.reducedMotion = DEFAULT_JUICE_SETTINGS.reducedMotion;
+    applyAndSaveJuiceSettings();
+  });
 
   window.addEventListener('keydown', (event) => {
     audioEngine.handleUserGesture();
     const snapshot = game.getSnapshot();
-    if (event.code === 'Enter') {
+    if (event.code === 'Enter' && !settingsOpen) {
       if (snapshot.state === 'ready' || snapshot.state === 'over') {
         event.preventDefault();
         startRun();
@@ -372,8 +555,8 @@ export function boot(): { game: Game; audioEngine: AudioEngine } {
       const renderView = game.getRenderView();
       renderer.render(renderView);
       if (renderView.shakeOffsetX !== 0 || renderView.shakeOffsetY !== 0) {
-        const bezelOffsetX = (renderView.shakeOffsetX * 0.45).toFixed(1);
-        const bezelOffsetY = (renderView.shakeOffsetY * 0.45).toFixed(1);
+        const bezelOffsetX = (renderView.shakeOffsetX * 0.22).toFixed(1);
+        const bezelOffsetY = (renderView.shakeOffsetY * 0.22).toFixed(1);
         stageFrame.style.transform = `translate(${bezelOffsetX}px, ${bezelOffsetY}px)`;
       } else {
         stageFrame.style.transform = '';

@@ -23,13 +23,15 @@ A high-juice synthwave brick-breaker arcade game built with TypeScript, HTML5 Ca
   - **C (Magnet Catch)**: Catches the ball on paddle contact for aimed re-launches.
   - **S (Safety Barrier)**: Deploys a bottom energy shield that saves one missed ball.
 - **100% Synthesized Web Audio**: Driving 128 BPM synthwave soundtrack (bass arpeggio, punchy drums, chord pads, and dynamic lead) plus synthesized sound effects with zero external audio files.
+- **Juice Lab Settings Menu**: Customize **Particle density** (`0%` to `300%`), **Particle size** (`0%` to `300%`), **Screen shake** (`0%` to `300%`), and **Reduced Motion**, with a live **Test Mix** impact preview and automatic `localStorage` persistence.
 
 ## Play
 
-- **Move Paddle**: `ArrowLeft` / `ArrowRight`, `A` / `D`, mouse/pointer drag on the playfield, or the on-screen touch steering buttons.
+- **Move Paddle**: `ArrowLeft` / `ArrowRight`, `A` / `D`, mouse/pointer tracking anywhere in the window, or the on-screen touch steering buttons.
 - **Launch / Parry / Fire Lasers**: `Space`, `ArrowUp`, `W`, canvas click, or the on-screen **LAUNCH / PARRY** button.
 - **Pause**: `P` or `Escape`.
 - **Mute**: `M`.
+- **Settings (Juice Lab)**: Click **Settings** in the top bar (or press `Escape` to close).
 - **Start / Restart**: `Enter` or the overlay button.
 
 ## Develop

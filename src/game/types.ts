@@ -160,6 +160,13 @@ export interface AudioSink {
   setIntensity(intensity: number): void;
 }
 
+export interface JuiceSettings {
+  particleDensity: number;
+  particleSize: number;
+  screenShake: number;
+  reducedMotion: boolean;
+}
+
 export interface GameSnapshot {
   state: GameState;
   score: number;

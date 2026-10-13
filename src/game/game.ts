@@ -25,6 +25,7 @@ import {
   type BrickEntity,
   type GameSnapshot,
   type GameState,
+  type JuiceSettings,
   type LaserProjectile,
   type PaddleEntity,
   type PowerUpCapsule,
@@ -132,12 +133,13 @@ export class Game {
     this.onHighScoreChange = options.onHighScoreChange;
 
     this.screenShake = new ScreenShake({
-      maximumOffsetPixels: 24,
-      decayPerSecond: 1.75,
+      maximumOffsetPixels: 10,
+      decayPerSecond: 2.0,
       reducedMotion: options.reducedMotion ?? false,
       random: effectsRandom,
     });
     this.particles = new ParticlePool(960, effectsRandom);
+    this.particles.reducedMotion = options.reducedMotion ?? false;
     this.floatingTexts = new FloatingTextPool(48);
     this.starfield = new Starfield({ count: 64 });
 
@@ -191,6 +193,43 @@ export class Game {
 
   public setReducedMotion(reducedMotion: boolean): void {
     this.screenShake.setReducedMotion(reducedMotion);
+    this.particles.reducedMotion = reducedMotion;
+  }
+
+  public setJuiceSettings(settings: Partial<JuiceSettings>): void {
+    if (typeof settings.particleDensity === 'number') {
+      this.particles.densityMultiplier = settings.particleDensity;
+    }
+    if (typeof settings.particleSize === 'number') {
+      this.particles.sizeMultiplier = settings.particleSize;
+    }
+    if (typeof settings.screenShake === 'number') {
+      this.screenShake.intensityMultiplier = settings.screenShake;
+    }
+    if (typeof settings.reducedMotion === 'boolean') {
+      this.setReducedMotion(settings.reducedMotion);
+    }
+  }
+
+  public previewJuiceImpact(): void {
+    const centerX = PLAY_FIELD_WIDTH / 2;
+    const centerY = PLAY_FIELD_HEIGHT * 0.44;
+    this.audio.brickHit(4, true, 'core');
+    this.screenShake.addTrauma(0.65);
+    this.spawnShockwave(centerX, centerY, 72, '#f472b6', 3.5);
+    this.spawnShockwave(centerX, centerY, 44, '#38bdf8', 2.2);
+    this.particles.burst(centerX, centerY, {
+      count: 34,
+      speed: 255,
+      speedVariance: DEFAULT_BURST_SPEED_VARIANCE,
+      size: 5.8,
+      sizeVariance: DEFAULT_BURST_SIZE_VARIANCE,
+      spreadRadius: 14,
+      palette: ['#f472b6', '#38bdf8', '#fde047', '#ffffff'],
+      lifeSeconds: 0.65,
+      gravity: 165,
+      drag: 1.3,
+    });
   }
 
   public update(deltaSeconds: number, input: InputState): void {
@@ -583,7 +622,7 @@ export class Game {
 
   private emitWallBounceSparks(x: number, y: number, directionRadians: number): void {
     this.audio.wallHit();
-    this.screenShake.addTrauma(0.28);
+    this.screenShake.addTrauma(0.14);
     this.particles.burst(x, y, {
       count: 10,
       speed: 170,
@@ -625,7 +664,7 @@ export class Game {
       ball.velocityY = -Math.abs(ball.velocityY);
       this.barrierActive = false;
       this.audio.barrierSave();
-      this.screenShake.addTrauma(0.65);
+      this.screenShake.addTrauma(0.48);
       this.spawnShockwave(ball.x, BARRIER_LINE_Y, 76, '#facc15', 4);
       this.particles.burst(ball.x, BARRIER_LINE_Y, {
         count: 26,
@@ -665,7 +704,7 @@ export class Game {
       this.combo = 0;
       this.recalculateMultiplier();
       this.audio.paddleHit(false);
-      this.screenShake.addTrauma(0.24);
+      this.screenShake.addTrauma(0.15);
       return;
     }
 
@@ -679,7 +718,7 @@ export class Game {
       this.paddle.parryCharged = false;
       this.paddle.scaleX = 1.28;
       this.paddle.scaleY = 0.68;
-      this.screenShake.addTrauma(0.78);
+      this.screenShake.addTrauma(0.56);
       this.spawnShockwave(ball.x, this.paddle.y, 74, '#fde047', 4);
       this.spawnShockwave(ball.x, this.paddle.y, 46, '#38bdf8', 2.5);
       this.particles.burst(ball.x, this.paddle.y, {
@@ -701,7 +740,7 @@ export class Game {
       this.recalculateMultiplier();
       this.paddle.scaleX = 1.15;
       this.paddle.scaleY = 0.84;
-      this.screenShake.addTrauma(0.36);
+      this.screenShake.addTrauma(0.2);
       this.particles.burst(ball.x, this.paddle.y, {
         count: 12,
         speed: 175,
@@ -753,7 +792,7 @@ export class Game {
           ball.speedPixelsPerSecond * 1.03,
         );
         this.audio.brickHit(this.combo, false, brick.kind);
-        this.screenShake.addTrauma(0.38);
+        this.screenShake.addTrauma(0.24);
         this.spawnShockwave(collision.contactX, collision.contactY, 32, '#eab308', 2.5);
         this.particles.burst(collision.contactX, collision.contactY, {
           count: 16,
@@ -784,7 +823,7 @@ export class Game {
 
       if (ball.parryBoostActive) {
         ball.parryBoostActive = false;
-        this.screenShake.addTrauma(0.55);
+        this.screenShake.addTrauma(0.38);
         this.spawnShockwave(collision.contactX, collision.contactY, 56, '#fde047', 3.5);
       }
 
@@ -817,7 +856,7 @@ export class Game {
 
     if (brick.hitPoints > 0) {
       this.audio.brickHit(this.combo, false, brick.kind);
-      this.screenShake.addTrauma(0.46);
+      this.screenShake.addTrauma(0.3);
       this.spawnShockwave(brickCenterX, brickCenterY, 30, brick.color, 2.2);
       this.particles.burst(brickCenterX, brickCenterY, {
         count: 18,
@@ -849,8 +888,8 @@ export class Game {
     this.chargeFever(FEVER_CHARGE_PER_BRICK);
 
     this.audio.brickHit(this.combo, true, brick.kind);
-    const comboTrauma = Math.min(0.85, 0.54 + this.combo * 0.04);
-    this.screenShake.addTrauma(brick.kind === 'core' ? 0.92 : comboTrauma);
+    const comboTrauma = Math.min(0.62, 0.36 + this.combo * 0.025);
+    this.screenShake.addTrauma(brick.kind === 'core' ? 0.74 : comboTrauma);
 
     this.emitBrickShatterParticles(brick, brickCenterX, brickCenterY);
     this.spawnShockwave(

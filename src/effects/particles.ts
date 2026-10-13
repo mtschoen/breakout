@@ -51,6 +51,9 @@ export class ParticlePool {
 
   private readonly pool: PooledParticle[];
   private currentAliveCount: number = 0;
+  private currentDensityMultiplier: number = 1;
+  private currentSizeMultiplier: number = 1;
+  private isReducedMotion: boolean = false;
   private readonly random: () => number;
 
   constructor(capacity: number = 320, random: () => number = Math.random) {
@@ -76,8 +79,35 @@ export class ParticlePool {
     return this.currentAliveCount;
   }
 
+  public get densityMultiplier(): number {
+    return this.currentDensityMultiplier;
+  }
+
+  public set densityMultiplier(value: number) {
+    this.currentDensityMultiplier = Math.max(0, value);
+  }
+
+  public get sizeMultiplier(): number {
+    return this.currentSizeMultiplier;
+  }
+
+  public set sizeMultiplier(value: number) {
+    this.currentSizeMultiplier = Math.max(0, value);
+  }
+
+  public get reducedMotion(): boolean {
+    return this.isReducedMotion;
+  }
+
+  public set reducedMotion(value: boolean) {
+    this.isReducedMotion = value;
+    if (value) {
+      this.clear();
+    }
+  }
+
   public spawn(options: ParticleSpawnOptions): boolean {
-    if (options.lifeSeconds <= 0 || options.size <= 0) {
+    if (this.isReducedMotion || options.lifeSeconds <= 0 || options.size <= 0) {
       return false;
     }
 
@@ -105,16 +135,22 @@ export class ParticlePool {
   }
 
   public burst(x: number, y: number, options: BurstOptions): number {
-    const targetCount = Math.max(0, Math.floor(options.count));
-    if (targetCount === 0) {
+    const requestedCount = Math.max(0, Math.floor(options.count));
+    if (
+      requestedCount === 0 ||
+      this.isReducedMotion ||
+      this.currentDensityMultiplier <= 0 ||
+      this.currentSizeMultiplier <= 0
+    ) {
       return 0;
     }
 
+    const targetCount = Math.max(1, Math.round(requestedCount * this.currentDensityMultiplier));
     const baseSpeed = options.speed;
     const speedVariance = options.speedVariance ?? 0;
     const baseLifeSeconds = options.lifeSeconds ?? 0.6;
     const lifeVariance = options.lifeVariance ?? 0;
-    const baseSize = options.size ?? 3;
+    const baseSize = (options.size ?? 3) * this.currentSizeMultiplier;
     const sizeVariance = options.sizeVariance ?? 0;
     const spreadRadius = options.spreadRadius ?? 0;
     const defaultColor = options.color ?? '#ffffff';

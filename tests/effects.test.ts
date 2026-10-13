@@ -153,6 +153,25 @@ describe('ScreenShake', () => {
     expect(shake.offsetX).toBe(0);
     expect(shake.offsetY).toBe(0);
   });
+
+  it('scales offsets with intensityMultiplier and zeroes when multiplier is zero', () => {
+    const shake = new ScreenShake({
+      maximumOffsetPixels: 10,
+      intensityMultiplier: 2,
+      random: () => 1.0,
+    });
+    expect(shake.intensityMultiplier).toBe(2);
+    shake.addTrauma(0.5);
+    expect(shake.offsetX).toBeCloseTo(5);
+
+    shake.intensityMultiplier = 0.5;
+    expect(shake.intensityMultiplier).toBe(0.5);
+    expect(shake.offsetX).toBeCloseTo(1.25);
+
+    shake.intensityMultiplier = 0;
+    expect(shake.offsetX).toBe(0);
+    expect(shake.offsetY).toBe(0);
+  });
 });
 
 describe('ParticlePool', () => {
@@ -449,6 +468,30 @@ describe('ParticlePool', () => {
     pool.clear();
     expect(pool.aliveCount).toBe(0);
     expect(pool.toRenderViews()).toHaveLength(0);
+  });
+
+  it('scales burst count and size with multipliers and respects reducedMotion', () => {
+    const pool = new ParticlePool(30);
+    pool.densityMultiplier = 2;
+    pool.sizeMultiplier = 1.5;
+    expect(pool.densityMultiplier).toBe(2);
+    expect(pool.sizeMultiplier).toBe(1.5);
+
+    const spawnedCount = pool.burst(50, 50, { count: 4, speed: 60, size: 4 });
+    expect(spawnedCount).toBe(8);
+    expect(pool.toRenderViews()[0].size).toBe(6);
+
+    pool.reducedMotion = true;
+    expect(pool.reducedMotion).toBe(true);
+    expect(pool.aliveCount).toBe(0);
+    expect(pool.burst(50, 50, { count: 4, speed: 60 })).toBe(0);
+    expect(pool.spawn({ x: 10, y: 10, velocityX: 0, velocityY: 0, lifeSeconds: 1, size: 2 })).toBe(
+      false,
+    );
+
+    pool.reducedMotion = false;
+    pool.densityMultiplier = 0;
+    expect(pool.burst(50, 50, { count: 4, speed: 60 })).toBe(0);
   });
 });
 

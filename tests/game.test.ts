@@ -547,5 +547,17 @@ describe('Game simulation and state machine', () => {
     // Missed capsule falls below playfield
     defaultAudioGame.spawnCapsuleForTesting(10, PLAY_FIELD_HEIGHT - 2, 'wide');
     defaultAudioGame.update(0.2, input);
+
+    // Juice settings and live preview impact
+    defaultAudioGame.setJuiceSettings({});
+    defaultAudioGame.setJuiceSettings({
+      particleDensity: 1.5,
+      particleSize: 1.25,
+      screenShake: 0.5,
+      reducedMotion: false,
+    });
+    defaultAudioGame.previewJuiceImpact();
+    defaultAudioGame.update(0.016, input);
+    expect(defaultAudioGame.getRenderView().shockwaves.length).toBeGreaterThan(0);
   });
 });
