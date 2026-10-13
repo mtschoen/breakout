@@ -1,14 +1,14 @@
 # breakout - Test Report
 
-`2026-10-13T22:07:00Z`
+`2026-10-13T22:18:30Z`
 
 | Field        | Value                                                                                                   |
 | ------------ | ------------------------------------------------------------------------------------------------------- |
 | **Status**   | PASS                                                                                                    |
 | **Mode**     | maintain                                                                                                |
 | **Tests**    | `165` total (`165` passed, `0` failed, `0` skipped)                                                     |
-| **Git**      | `85bd82e` (`main`)                                                                                      |
-| **Coverage** | `2156/2156` statements (`100%`), `0` uncovered, `0` exclusion annotations                               |
+| **Git**      | `5c1d228` (`main`)                                                                                      |
+| **Coverage** | `2159/2159` statements (`100%`), `0` uncovered, `0` exclusion annotations                               |
 | **Lint**     | `eslint`: `0` findings (`0` errors, `0` warnings); `0` per-case suppressions, `0` documented exceptions |
 
 ## Lint
@@ -28,7 +28,7 @@
 | `src/audio/sound-effects.ts`   | 108        | 108     | 100%    | 107   | 107           | 100%         |
 | `src/effects/floating-text.ts` | 64         | 64      | 100%    | 58    | 58            | 100%         |
 | `src/effects/particles.ts`     | 118        | 118     | 100%    | 111   | 111           | 100%         |
-| `src/effects/screen-shake.ts`  | 40         | 40      | 100%    | 40    | 40            | 100%         |
+| `src/effects/screen-shake.ts`  | 43         | 43      | 100%    | 43    | 43            | 100%         |
 | `src/effects/starfield.ts`     | 31         | 31      | 100%    | 29    | 29            | 100%         |
 | `src/engine/collision.ts`      | 46         | 46      | 100%    | 46    | 46            | 100%         |
 | `src/engine/input.ts`          | 106        | 106     | 100%    | 106   | 106           | 100%         |
