@@ -1,14 +1,14 @@
 # breakout - Test Report
 
-`2026-10-13T21:17:30Z`
+`2026-10-13T21:21:00Z`
 
 | Field        | Value                                                                                                   |
 | ------------ | ------------------------------------------------------------------------------------------------------- |
 | **Status**   | PASS                                                                                                    |
 | **Mode**     | maintain                                                                                                |
 | **Tests**    | `163` total (`163` passed, `0` failed, `0` skipped)                                                     |
-| **Git**      | `f4d2a50` (`main`)                                                                                      |
-| **Coverage** | `2010/2010` statements (`100%`), `0` uncovered, `0` exclusion annotations                               |
+| **Git**      | `10fe10d` (`main`)                                                                                      |
+| **Coverage** | `2015/2015` statements (`100%`), `0` uncovered, `0` exclusion annotations                               |
 | **Lint**     | `eslint`: `0` findings (`0` errors, `0` warnings); `0` per-case suppressions, `0` documented exceptions |
 
 ## Lint
@@ -22,7 +22,7 @@
 
 | Module                         | Statements | Covered | Percent | Lines | Covered Lines | Line Percent |
 | ------------------------------ | ---------- | ------- | ------- | ----- | ------------- | ------------ |
-| `src/main.ts`                  | 240        | 240     | 100%    | 237   | 237           | 100%         |
+| `src/main.ts`                  | 245        | 245     | 100%    | 242   | 242           | 100%         |
 | `src/audio/audio-engine.ts`    | 79         | 79      | 100%    | 79    | 79            | 100%         |
 | `src/audio/music.ts`           | 215        | 215     | 100%    | 213   | 213           | 100%         |
 | `src/audio/sound-effects.ts`   | 108        | 108     | 100%    | 107   | 107           | 100%         |
