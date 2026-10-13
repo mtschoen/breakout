@@ -555,8 +555,12 @@ export function boot(): { game: Game; audioEngine: AudioEngine } {
       const renderView = game.getRenderView();
       renderer.render(renderView);
       if (renderView.shakeOffsetX !== 0 || renderView.shakeOffsetY !== 0) {
-        const bezelOffsetX = (renderView.shakeOffsetX * 0.22).toFixed(1);
-        const bezelOffsetY = (renderView.shakeOffsetY * 0.22).toFixed(1);
+        const bezelOffsetX = Math.max(-1.2, Math.min(1.2, renderView.shakeOffsetX * 0.14)).toFixed(
+          1,
+        );
+        const bezelOffsetY = Math.max(-1.2, Math.min(1.2, renderView.shakeOffsetY * 0.14)).toFixed(
+          1,
+        );
         stageFrame.style.transform = `translate(${bezelOffsetX}px, ${bezelOffsetY}px)`;
       } else {
         stageFrame.style.transform = '';

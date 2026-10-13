@@ -8,8 +8,8 @@ import { PLAY_FIELD_HEIGHT, PLAY_FIELD_WIDTH } from '../src/game/types';
 describe('ScreenShake', () => {
   it('initializes with default options and zero trauma', () => {
     const shake = new ScreenShake();
-    expect(shake.maximumOffsetPixels).toBe(14);
-    expect(shake.decayPerSecond).toBe(1.6);
+    expect(shake.maximumOffsetPixels).toBe(6);
+    expect(shake.decayPerSecond).toBe(2.4);
     expect(shake.reducedMotion).toBe(false);
     expect(shake.trauma).toBe(0);
     expect(shake.offsetX).toBe(0);
@@ -27,12 +27,17 @@ describe('ScreenShake', () => {
     expect(shake.reducedMotion).toBe(true);
   });
 
-  it('adds trauma and clamps between 0 and 1', () => {
+  it('adds trauma with diminishing returns and clamps between 0 and 1', () => {
     const shake = new ScreenShake();
     shake.addTrauma(0.4);
     expect(shake.trauma).toBeCloseTo(0.4);
 
-    shake.addTrauma(0.8);
+    // Overlapping impulse adds sub-linearly instead of jumping straight to 1.0
+    shake.addTrauma(0.4);
+    expect(shake.trauma).toBeGreaterThan(0.4);
+    expect(shake.trauma).toBeLessThan(0.6);
+
+    shake.addTrauma(1.5);
     expect(shake.trauma).toBe(1.0);
 
     // Negative or zero trauma addition is ignored

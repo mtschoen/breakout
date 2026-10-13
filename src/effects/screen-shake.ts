@@ -18,8 +18,8 @@ export class ScreenShake {
   private readonly random: () => number;
 
   constructor(options?: ScreenShakeOptions) {
-    this.maximumOffsetPixels = options?.maximumOffsetPixels ?? 14;
-    this.decayPerSecond = options?.decayPerSecond ?? 1.6;
+    this.maximumOffsetPixels = options?.maximumOffsetPixels ?? 6;
+    this.decayPerSecond = options?.decayPerSecond ?? 2.4;
     this.currentIntensityMultiplier = Math.max(0, options?.intensityMultiplier ?? 1);
     this.isReducedMotion = options?.reducedMotion ?? false;
     this.random = options?.random ?? Math.random;
@@ -68,7 +68,10 @@ export class ScreenShake {
     if (amount <= 0) {
       return;
     }
-    this.traumaValue = Math.min(1, this.traumaValue + amount);
+    const clampedAmount = Math.min(1, amount);
+    const dominant = Math.max(this.traumaValue, clampedAmount);
+    const secondary = Math.min(this.traumaValue, clampedAmount);
+    this.traumaValue = Math.min(1, dominant + secondary * 0.35 * (1 - dominant));
     this.computeOffsets();
   }
 
