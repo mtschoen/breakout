@@ -182,7 +182,6 @@ describe('Application cabinet bootstrap (src/main.ts)', () => {
     const appContainer = createFakeElement('div', allElements, canvasContext);
     const windowListeners = new Map<string, EventListener[]>();
     const documentListeners = new Map<string, EventListener[]>();
-    let reducedMotionChangeHandler: ((event: { matches: boolean }) => void) | null = null;
     const storageMap = new Map<string, string>([['prism-breakout.high-score', '2500']]);
     const scheduledFrameCallbacks: Array<(timestampMilliseconds: number) => void> = [];
 
@@ -206,12 +205,6 @@ describe('Application cabinet bootstrap (src/main.ts)', () => {
           storageMap.set(key, value);
         },
       },
-      matchMedia: () => ({
-        matches: false,
-        addEventListener: (_type: string, listener: (event: { matches: boolean }) => void) => {
-          reducedMotionChangeHandler = listener;
-        },
-      }),
       addEventListener: (type: string, listener: EventListener) => {
         const bucket = windowListeners.get(type) ?? [];
         bucket.push(listener);
@@ -252,11 +245,11 @@ describe('Application cabinet bootstrap (src/main.ts)', () => {
     );
     expect(sourceLinkElement?.href).toBe('https://github.com/mtschoen/breakout');
     expect(sourceLinkElement?.target).toBe('_blank');
+    const creditElement = allElements.find(
+      (element) => element.tagName === 'span' && element.className === 'credit-text',
+    );
+    expect(creditElement?.textContent).toBe('Created by Gemini 4 argon');
     const canvasElement = allElements.find((element) => element.tagName === 'canvas')!;
-
-    // Trigger reduced-motion preference change
-    expect(reducedMotionChangeHandler).not.toBeNull();
-    reducedMotionChangeHandler!({ matches: true });
 
     // Start run via Enter key from ready state
     for (const listener of windowListeners.get('keydown') ?? []) {
@@ -288,10 +281,13 @@ describe('Application cabinet bootstrap (src/main.ts)', () => {
       touchButton.dispatch('click', { detail: 1 });
     }
 
-    // Exercise canvas pointer tracking and click launch
+    // Exercise window and canvas pointer tracking (including outside canvas bounds) and click launch
+    for (const listener of windowListeners.get('pointermove') ?? []) {
+      listener({ clientX: -80, pointerId: 10 } as unknown as Event);
+      listener({ clientX: 640, pointerId: 10 } as unknown as Event);
+    }
     canvasElement.dispatch('pointermove', { clientX: 120 });
     canvasElement.dispatch('pointerdown', { clientX: 180, button: 0 });
-    canvasElement.dispatch('pointerleave');
     canvasElement.getBoundingClientRect = () => ({ left: 0, top: 0, width: 0, height: 0 });
     canvasElement.dispatch('pointermove', { clientX: 120 });
 

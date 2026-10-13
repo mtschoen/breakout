@@ -63,25 +63,14 @@ export function boot(): { game: Game; audioEngine: AudioEngine } {
     throw new Error('Missing #app element');
   }
 
-  const reducedMotionQuery =
-    typeof window.matchMedia === 'function'
-      ? window.matchMedia('(prefers-reduced-motion: reduce)')
-      : null;
-
   const audioEngine = new AudioEngine();
   const game = new Game({
     audio: audioEngine,
     initialHighScore: readStoredHighScore(),
     onHighScoreChange: writeStoredHighScore,
-    reducedMotion: reducedMotionQuery?.matches ?? false,
+    reducedMotion: false,
   });
   const input = new InputState();
-
-  if (reducedMotionQuery !== null && typeof reducedMotionQuery.addEventListener === 'function') {
-    reducedMotionQuery.addEventListener('change', (event) => {
-      game.setReducedMotion(event.matches);
-    });
-  }
 
   const cabinet = createElement('main', 'cabinet');
   const header = createElement('header', 'cabinet-header');
@@ -146,18 +135,24 @@ export function boot(): { game: Game; audioEngine: AudioEngine } {
   muteButton.type = 'button';
   const controlsRestartButton = createElement('button', 'control-button', 'Restart');
   controlsRestartButton.type = 'button';
-  const sourceLink = createElement('a', 'control-button source-link', 'GitHub ↗');
-  sourceLink.href = 'https://github.com/mtschoen/breakout';
-  sourceLink.target = '_blank';
-  sourceLink.rel = 'noopener noreferrer';
-  sourceLink.setAttribute('aria-label', 'View Prism Breakout on GitHub (opens in a new tab)');
-  controlsBar.append(pauseButton, muteButton, controlsRestartButton, sourceLink);
+  controlsBar.append(pauseButton, muteButton, controlsRestartButton);
 
   const helpText = createElement(
     'p',
     'help-text',
     'Move: Arrows / A-D / Mouse. Launch, Parry Smash & Lasers: Space / Click. Pause: P / Esc. Mute: M. Collect M, W, L, F, C, S capsules.',
   );
+
+  const footer = createElement('footer', 'cabinet-footer');
+  const creditText = createElement('span', 'credit-text', 'Created by Gemini 4 argon');
+  const footerSeparator = createElement('span', 'footer-separator', '·');
+  footerSeparator.setAttribute('aria-hidden', 'true');
+  const sourceLink = createElement('a', 'source-link', 'GitHub ↗');
+  sourceLink.href = 'https://github.com/mtschoen/breakout';
+  sourceLink.target = '_blank';
+  sourceLink.rel = 'noopener noreferrer';
+  sourceLink.setAttribute('aria-label', 'View Prism Breakout on GitHub (opens in a new tab)');
+  footer.append(creditText, footerSeparator, sourceLink);
 
   const touchDeck = createElement('div', 'touch-deck');
   touchDeck.setAttribute('role', 'group');
@@ -190,7 +185,7 @@ export function boot(): { game: Game; audioEngine: AudioEngine } {
   const touchButtons = [leftButton, rightButton, launchButton];
   touchDeck.append(leftButton, rightButton, launchButton);
 
-  cabinet.append(header, hudBar, stageFrame, controlsBar, helpText, touchDeck);
+  cabinet.append(header, hudBar, stageFrame, controlsBar, helpText, footer, touchDeck);
   application.replaceChildren(cabinet);
 
   const touchPointers = new Map<number, TouchControl>();
@@ -260,11 +255,13 @@ export function boot(): { game: Game; audioEngine: AudioEngine } {
     input.setPointerPlayfieldX(normalizedX);
   }
 
+  window.addEventListener('pointermove', (event) => {
+    if (!touchPointers.has(event.pointerId)) {
+      updateCanvasPointerPosition(event.clientX);
+    }
+  });
   canvas.addEventListener('pointermove', (event) => {
     updateCanvasPointerPosition(event.clientX);
-  });
-  canvas.addEventListener('pointerleave', () => {
-    input.setPointerPlayfieldX(null);
   });
   canvas.addEventListener('pointerdown', (event) => {
     audioEngine.handleUserGesture();

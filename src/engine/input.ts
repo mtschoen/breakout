@@ -47,6 +47,10 @@ export class InputState {
     const alreadyHeld = this.keyboardHeldKeys.has(code);
     this.keyboardHeldKeys.add(code);
 
+    if (this.isLeftKey(code) || this.isRightKey(code)) {
+      this.currentPointerPlayfieldX = null;
+    }
+
     if (!alreadyHeld) {
       if (this.isLaunchKey(code)) {
         this.launchPressedQueued = true;
@@ -187,8 +191,10 @@ export class InputState {
   touchButtonDown(control: TouchControl): void {
     if (control === 'left') {
       this.touchLeftHeld = true;
+      this.currentPointerPlayfieldX = null;
     } else if (control === 'right') {
       this.touchRightHeld = true;
+      this.currentPointerPlayfieldX = null;
     } else if (control === 'launch') {
       if (!this.touchLaunchHeld) {
         this.launchPressedQueued = true;

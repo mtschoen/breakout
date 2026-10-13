@@ -416,7 +416,7 @@ export class Game {
       this.paddle.x += axisX * this.paddle.speedPixelsPerSecond * deltaSeconds;
     } else if (input.pointerPlayfieldX !== null) {
       const desiredX = input.pointerPlayfieldX - this.paddle.width / 2;
-      const maximumStep = this.paddle.speedPixelsPerSecond * 1.85 * deltaSeconds;
+      const maximumStep = this.paddle.speedPixelsPerSecond * 2.6 * deltaSeconds;
       const difference = desiredX - this.paddle.x;
       if (Math.abs(difference) <= maximumStep) {
         this.paddle.x = desiredX;
