@@ -24,11 +24,11 @@ export class Renderer {
     const context = this.context;
     context.save();
     this.drawBackground(view);
-    this.drawStars(view.stars);
-    this.drawPerspectiveGrid(view.feverActive);
 
     context.save();
     context.translate(view.shakeOffsetX, view.shakeOffsetY);
+    this.drawStars(view.stars);
+    this.drawPerspectiveGrid(view.feverActive);
 
     if (view.barrierActive) {
       this.drawBarrier();
@@ -72,8 +72,6 @@ export class Renderer {
       this.drawFloatingText(floatingText);
     }
 
-    context.restore();
-
     this.drawTopTelemetryBar(view);
     if (view.stageBannerTimerSeconds > 0) {
       this.drawStageBanner(view);
@@ -81,7 +79,12 @@ export class Renderer {
     if (view.feverActive) {
       this.drawFeverBorder();
     }
+    const shakeMagnitude = Math.hypot(view.shakeOffsetX, view.shakeOffsetY);
+    if (shakeMagnitude > 1.2) {
+      this.drawImpactPulse(shakeMagnitude);
+    }
 
+    context.restore();
     context.restore();
   }
 
@@ -98,7 +101,7 @@ export class Renderer {
       gradient.addColorStop(1, '#140c29');
     }
     context.fillStyle = gradient;
-    context.fillRect(0, 0, PLAY_FIELD_WIDTH, PLAY_FIELD_HEIGHT);
+    context.fillRect(-32, -32, PLAY_FIELD_WIDTH + 64, PLAY_FIELD_HEIGHT + 64);
   }
 
   private drawStars(stars: readonly Readonly<StarView>[]): void {
@@ -377,15 +380,53 @@ export class Renderer {
 
   private drawParticle(particle: Readonly<RenderParticleView>): void {
     const context = this.context;
+    const clampedAlpha = Math.min(1, Math.max(0, particle.alpha));
+    const radius = Math.max(1.5, particle.size * 0.65);
+    const velocityX = particle.velocityX ?? 0;
+    const velocityY = particle.velocityY ?? 0;
+    const speed = Math.hypot(velocityX, velocityY);
+
     context.save();
-    context.globalAlpha = Math.min(1, Math.max(0, particle.alpha));
+
+    // 1. Soft outer neon glow halo
+    context.globalAlpha = clampedAlpha * 0.28;
     context.fillStyle = particle.color;
-    context.fillRect(
-      particle.x - particle.size / 2,
-      particle.y - particle.size / 2,
-      particle.size,
-      particle.size,
-    );
+    context.beginPath();
+    context.arc(particle.x, particle.y, radius * 1.75, 0, Math.PI * 2);
+    context.fill();
+
+    // 2. Directional motion streak tail for fast sparks
+    context.globalAlpha = clampedAlpha;
+    if (speed > 20) {
+      const tailLength = Math.min(24, speed * 0.065 + radius * 2.1);
+      const tailX = particle.x - (velocityX / speed) * tailLength;
+      const tailY = particle.y - (velocityY / speed) * tailLength;
+      context.strokeStyle = particle.color;
+      context.lineWidth = Math.max(1.5, radius * 0.95);
+      context.beginPath();
+      context.moveTo(tailX, tailY);
+      context.lineTo(particle.x, particle.y);
+      context.stroke();
+    }
+
+    // 3. 4-point Prism Diamond shard body
+    const diamondRadius = radius * 1.2;
+    context.fillStyle = particle.color;
+    context.beginPath();
+    context.moveTo(particle.x, particle.y - diamondRadius);
+    context.lineTo(particle.x + diamondRadius, particle.y);
+    context.lineTo(particle.x, particle.y + diamondRadius);
+    context.lineTo(particle.x - diamondRadius, particle.y);
+    context.closePath();
+    context.fill();
+
+    // 4. White-hot specular core
+    context.globalAlpha = Math.min(1, clampedAlpha * 0.92);
+    context.fillStyle = '#ffffff';
+    context.beginPath();
+    context.arc(particle.x, particle.y, Math.max(1, radius * 0.45), 0, Math.PI * 2);
+    context.fill();
+
     context.restore();
   }
 
@@ -475,6 +516,16 @@ export class Renderer {
     context.strokeStyle = '#f472b6';
     context.lineWidth = 4;
     context.strokeRect(2, 2, PLAY_FIELD_WIDTH - 4, PLAY_FIELD_HEIGHT - 4);
+    context.restore();
+  }
+
+  private drawImpactPulse(shakeMagnitude: number): void {
+    const context = this.context;
+    context.save();
+    context.globalAlpha = Math.min(0.65, shakeMagnitude / 18);
+    context.strokeStyle = '#67e8f9';
+    context.lineWidth = 3;
+    context.strokeRect(1.5, 1.5, PLAY_FIELD_WIDTH - 3, PLAY_FIELD_HEIGHT - 3);
     context.restore();
   }
 }

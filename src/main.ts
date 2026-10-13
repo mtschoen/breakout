@@ -367,7 +367,15 @@ export function boot(): { game: Game; audioEngine: AudioEngine } {
       game.update(deltaSeconds, input);
     },
     () => {
-      renderer.render(game.getRenderView());
+      const renderView = game.getRenderView();
+      renderer.render(renderView);
+      if (renderView.shakeOffsetX !== 0 || renderView.shakeOffsetY !== 0) {
+        const bezelOffsetX = (renderView.shakeOffsetX * 0.45).toFixed(1);
+        const bezelOffsetY = (renderView.shakeOffsetY * 0.45).toFixed(1);
+        stageFrame.style.transform = `translate(${bezelOffsetX}px, ${bezelOffsetY}px)`;
+      } else {
+        stageFrame.style.transform = '';
+      }
       refreshInterface();
     },
   );

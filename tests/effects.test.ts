@@ -293,6 +293,37 @@ describe('ParticlePool', () => {
     }
   });
 
+  it('burst applies speedVariance, sizeVariance, lifeVariance, spreadRadius, and palette', () => {
+    let callIndex = 0;
+    const sequence = [0.1, 0.8, 0.3, 0.9, 0.2, 0.7, 0.4, 0.6];
+    const pool = new ParticlePool(20, () => {
+      const value = sequence[callIndex % sequence.length];
+      callIndex += 1;
+      return value;
+    });
+
+    const spawnedCount = pool.burst(100, 200, {
+      count: 4,
+      speed: 200,
+      speedVariance: 0.5,
+      lifeSeconds: 0.6,
+      lifeVariance: 0.4,
+      size: 4,
+      sizeVariance: 0.5,
+      spreadRadius: 12,
+      palette: ['#22d3ee', '#f472b6'],
+    });
+
+    expect(spawnedCount).toBe(4);
+    const views = pool.toRenderViews();
+    expect(views).toHaveLength(4);
+    for (const view of views) {
+      expect(['#22d3ee', '#f472b6']).toContain(view.color);
+      expect(view.size).toBeGreaterThanOrEqual(1.2);
+      expect(view.lifeSeconds).toBeGreaterThanOrEqual(0.12);
+    }
+  });
+
   it('burst stops gracefully when pool capacity is reached', () => {
     const pool = new ParticlePool(4);
     const spawnedCount = pool.burst(50, 50, {

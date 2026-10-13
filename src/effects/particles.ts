@@ -13,9 +13,14 @@ export interface ParticleSpawnOptions {
 export interface BurstOptions {
   count: number;
   speed: number;
+  speedVariance?: number;
   lifeSeconds?: number;
+  lifeVariance?: number;
   size?: number;
+  sizeVariance?: number;
+  spreadRadius?: number;
   color?: string;
+  palette?: readonly string[];
   gravity?: number;
   drag?: number;
   directionRadians?: number;
@@ -37,18 +42,7 @@ export interface ParticleView {
   drag: number;
 }
 
-interface PooledParticle {
-  x: number;
-  y: number;
-  velocityX: number;
-  velocityY: number;
-  lifeSeconds: number;
-  remainingLifeSeconds: number;
-  size: number;
-  color: string;
-  alpha: number;
-  gravity: number;
-  drag: number;
+interface PooledParticle extends ParticleView {
   alive: boolean;
 }
 
@@ -62,23 +56,20 @@ export class ParticlePool {
   constructor(capacity: number = 320, random: () => number = Math.random) {
     this.capacity = Math.max(1, Math.floor(capacity));
     this.random = random;
-    this.pool = new Array(this.capacity);
-    for (let index = 0; index < this.capacity; index++) {
-      this.pool[index] = {
-        x: 0,
-        y: 0,
-        velocityX: 0,
-        velocityY: 0,
-        lifeSeconds: 0,
-        remainingLifeSeconds: 0,
-        size: 0,
-        color: '#ffffff',
-        alpha: 0,
-        gravity: 0,
-        drag: 0,
-        alive: false,
-      };
-    }
+    this.pool = Array.from({ length: this.capacity }, () => ({
+      x: 0,
+      y: 0,
+      velocityX: 0,
+      velocityY: 0,
+      lifeSeconds: 0,
+      remainingLifeSeconds: 0,
+      size: 0,
+      color: '#ffffff',
+      alpha: 0,
+      gravity: 0,
+      drag: 0,
+      alive: false,
+    }));
   }
 
   public get aliveCount(): number {
@@ -119,10 +110,15 @@ export class ParticlePool {
       return 0;
     }
 
-    const speed = options.speed;
-    const lifeSeconds = options.lifeSeconds ?? 0.6;
-    const size = options.size ?? 3;
-    const color = options.color ?? '#ffffff';
+    const baseSpeed = options.speed;
+    const speedVariance = options.speedVariance ?? 0;
+    const baseLifeSeconds = options.lifeSeconds ?? 0.6;
+    const lifeVariance = options.lifeVariance ?? 0;
+    const baseSize = options.size ?? 3;
+    const sizeVariance = options.sizeVariance ?? 0;
+    const spreadRadius = options.spreadRadius ?? 0;
+    const defaultColor = options.color ?? '#ffffff';
+    const palette = options.palette;
     const gravity = options.gravity ?? 0;
     const drag = options.drag ?? 0;
     const directionRadians = options.directionRadians;
@@ -139,17 +135,36 @@ export class ParticlePool {
         angle = randomSource() * Math.PI * 2;
       }
 
-      const velocityX = Math.cos(angle) * speed;
-      const velocityY = Math.sin(angle) * speed;
+      const particleSpeed =
+        speedVariance > 0
+          ? Math.max(12, baseSpeed * (1 + (randomSource() * 2 - 1) * speedVariance))
+          : baseSpeed;
+      const particleSize =
+        sizeVariance > 0
+          ? Math.max(1.5, baseSize * (1 + (randomSource() * 2 - 1) * sizeVariance))
+          : baseSize;
+      const particleLifeSeconds =
+        lifeVariance > 0
+          ? Math.max(0.12, baseLifeSeconds * (1 + (randomSource() * 2 - 1) * lifeVariance))
+          : baseLifeSeconds;
+      const spawnX = spreadRadius > 0 ? x + (randomSource() * 2 - 1) * spreadRadius : x;
+      const spawnY = spreadRadius > 0 ? y + (randomSource() * 2 - 1) * (spreadRadius * 0.5) : y;
+      const particleColor =
+        palette && palette.length > 0
+          ? palette[Math.floor(randomSource() * palette.length) % palette.length]
+          : defaultColor;
+
+      const velocityX = Math.cos(angle) * particleSpeed;
+      const velocityY = Math.sin(angle) * particleSpeed;
 
       const spawned = this.spawn({
-        x,
-        y,
+        x: spawnX,
+        y: spawnY,
         velocityX,
         velocityY,
-        lifeSeconds,
-        size,
-        color,
+        lifeSeconds: particleLifeSeconds,
+        size: particleSize,
+        color: particleColor,
         gravity,
         drag,
       });

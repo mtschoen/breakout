@@ -59,6 +59,9 @@ export const FEVER_CHARGE_PER_BRICK = 0.08;
 export const NOVA_EXPLOSION_RADIUS_PIXELS = 74;
 export const BARRIER_LINE_Y = PLAY_FIELD_HEIGHT - 16;
 
+const DEFAULT_BURST_SPEED_VARIANCE = 0.55;
+const DEFAULT_BURST_SIZE_VARIANCE = 0.4;
+
 const NOOP_AUDIO_SINK: AudioSink = {
   paddleHit: () => {},
   wallHit: () => {},
@@ -120,16 +123,21 @@ export class Game {
 
   public constructor(options: GameOptions = {}) {
     this.audio = options.audio ?? NOOP_AUDIO_SINK;
-    const seededGenerator = createRandom(options.seed ?? 0x53484154);
+    const baseSeed = options.seed ?? 0x53484154;
+    const seededGenerator = createRandom(baseSeed);
+    const effectsGenerator = createRandom(baseSeed ^ 0x9e3779b9);
     this.random = options.random ?? (() => seededGenerator.next());
+    const effectsRandom = options.random ?? (() => effectsGenerator.next());
     this.highScore = Math.max(0, Math.floor(options.initialHighScore ?? 0));
     this.onHighScoreChange = options.onHighScoreChange;
 
     this.screenShake = new ScreenShake({
+      maximumOffsetPixels: 24,
+      decayPerSecond: 1.75,
       reducedMotion: options.reducedMotion ?? false,
-      random: this.random,
+      random: effectsRandom,
     });
-    this.particles = new ParticlePool(360, this.random);
+    this.particles = new ParticlePool(960, effectsRandom);
     this.floatingTexts = new FloatingTextPool(48);
     this.starfield = new Starfield({ count: 64 });
 
@@ -532,38 +540,79 @@ export class Game {
       ? '#fde047'
       : ball.pierceRemainingSeconds > 0
         ? '#fb923c'
-        : '#38bdf8';
+        : this.feverActive
+          ? '#f472b6'
+          : '#38bdf8';
     ball.trail.unshift({
       x: ball.x,
       y: ball.y,
-      radius: ball.radius * 0.85,
-      alpha: 0.55,
+      radius: ball.radius * 0.92,
+      alpha: 0.68,
       color,
     });
-    if (ball.trail.length > 9) {
-      ball.trail.length = 9;
+    if (ball.trail.length > 12) {
+      ball.trail.length = 12;
     }
     for (let index = 0; index < ball.trail.length; index += 1) {
-      ball.trail[index].alpha = Math.max(0.05, 0.55 * (1 - index / 9));
-      ball.trail[index].radius = Math.max(2, ball.radius * (0.85 - index * 0.07));
+      ball.trail[index].alpha = Math.max(0.06, 0.68 * (1 - index / 12));
+      ball.trail[index].radius = Math.max(2, ball.radius * (0.92 - index * 0.06));
     }
+
+    const reverseAngle = Math.atan2(-ball.velocityY, -ball.velocityX);
+    const trailPalette = ball.parryBoostActive
+      ? ['#fde047', '#ffffff', '#38bdf8']
+      : ball.pierceRemainingSeconds > 0
+        ? ['#fb923c', '#fef08a', '#ef4444']
+        : this.feverActive
+          ? ['#f472b6', '#67e8f9', '#fde047']
+          : ['#38bdf8', '#67e8f9', '#c084fc'];
+    this.particles.burst(ball.x, ball.y, {
+      count: ball.parryBoostActive || ball.pierceRemainingSeconds > 0 ? 2 : 1,
+      speed: 55,
+      speedVariance: DEFAULT_BURST_SPEED_VARIANCE,
+      size: ball.parryBoostActive ? 4.2 : 3.2,
+      sizeVariance: DEFAULT_BURST_SIZE_VARIANCE,
+      lifeSeconds: 0.22,
+      spreadRadius: 3,
+      directionRadians: reverseAngle,
+      spreadRadians: 0.9,
+      palette: trailPalette,
+      drag: 1.5,
+    });
+  }
+
+  private emitWallBounceSparks(x: number, y: number, directionRadians: number): void {
+    this.audio.wallHit();
+    this.screenShake.addTrauma(0.28);
+    this.particles.burst(x, y, {
+      count: 10,
+      speed: 170,
+      speedVariance: DEFAULT_BURST_SPEED_VARIANCE,
+      size: 4.5,
+      sizeVariance: DEFAULT_BURST_SIZE_VARIANCE,
+      directionRadians,
+      spreadRadians: Math.PI * 0.65,
+      palette: ['#38bdf8', '#ffffff', '#c084fc'],
+      lifeSeconds: 0.35,
+      drag: 1.4,
+    });
   }
 
   private handleBallWallCollisions(ball: BallEntity): void {
     if (ball.x - ball.radius < 0) {
       ball.x = ball.radius;
       ball.velocityX = Math.abs(ball.velocityX);
-      this.audio.wallHit();
+      this.emitWallBounceSparks(ball.x, ball.y, 0);
     } else if (ball.x + ball.radius > PLAY_FIELD_WIDTH) {
       ball.x = PLAY_FIELD_WIDTH - ball.radius;
       ball.velocityX = -Math.abs(ball.velocityX);
-      this.audio.wallHit();
+      this.emitWallBounceSparks(ball.x, ball.y, Math.PI);
     }
 
     if (ball.y - ball.radius < 0) {
       ball.y = ball.radius;
       ball.velocityY = Math.abs(ball.velocityY);
-      this.audio.wallHit();
+      this.emitWallBounceSparks(ball.x, ball.y, Math.PI / 2);
     }
   }
 
@@ -576,7 +625,21 @@ export class Game {
       ball.velocityY = -Math.abs(ball.velocityY);
       this.barrierActive = false;
       this.audio.barrierSave();
-      this.spawnShockwave(ball.x, BARRIER_LINE_Y, 64, '#facc15', 3.5);
+      this.screenShake.addTrauma(0.65);
+      this.spawnShockwave(ball.x, BARRIER_LINE_Y, 76, '#facc15', 4);
+      this.particles.burst(ball.x, BARRIER_LINE_Y, {
+        count: 26,
+        speed: 220,
+        speedVariance: 0.6,
+        size: 5.5,
+        sizeVariance: DEFAULT_BURST_SIZE_VARIANCE,
+        directionRadians: -Math.PI / 2,
+        spreadRadians: Math.PI * 0.85,
+        palette: ['#facc15', '#ffffff', '#67e8f9'],
+        lifeSeconds: 0.55,
+        gravity: 140,
+        drag: 1.2,
+      });
       this.floatingTexts.spawn(ball.x, BARRIER_LINE_Y - 12, 'BARRIER SAVE!', '#facc15');
     }
   }
@@ -602,6 +665,7 @@ export class Game {
       this.combo = 0;
       this.recalculateMultiplier();
       this.audio.paddleHit(false);
+      this.screenShake.addTrauma(0.24);
       return;
     }
 
@@ -613,22 +677,43 @@ export class Game {
       );
       this.paddle.parryWindowRemainingSeconds = 0;
       this.paddle.parryCharged = false;
-      this.paddle.scaleX = 1.24;
-      this.paddle.scaleY = 0.72;
-      this.screenShake.addTrauma(0.32);
-      this.spawnShockwave(ball.x, this.paddle.y, 58, '#fde047', 3.5);
+      this.paddle.scaleX = 1.28;
+      this.paddle.scaleY = 0.68;
+      this.screenShake.addTrauma(0.78);
+      this.spawnShockwave(ball.x, this.paddle.y, 74, '#fde047', 4);
+      this.spawnShockwave(ball.x, this.paddle.y, 46, '#38bdf8', 2.5);
       this.particles.burst(ball.x, this.paddle.y, {
-        count: 16,
-        speed: 180,
-        color: '#fde047',
-        lifeSeconds: 0.45,
+        count: 34,
+        speed: 260,
+        speedVariance: 0.6,
+        size: 6,
+        sizeVariance: DEFAULT_BURST_SIZE_VARIANCE,
+        spreadRadius: 12,
+        palette: ['#fde047', '#ffffff', '#38bdf8', '#f472b6'],
+        lifeSeconds: 0.58,
+        lifeVariance: 0.3,
+        gravity: 130,
+        drag: 1.2,
       });
       this.floatingTexts.spawn(ball.x, this.paddle.y - 16, 'PRISM SMASH!', '#fde047');
     } else {
       this.combo = 0;
       this.recalculateMultiplier();
-      this.paddle.scaleX = 1.12;
-      this.paddle.scaleY = 0.86;
+      this.paddle.scaleX = 1.15;
+      this.paddle.scaleY = 0.84;
+      this.screenShake.addTrauma(0.36);
+      this.particles.burst(ball.x, this.paddle.y, {
+        count: 12,
+        speed: 175,
+        speedVariance: DEFAULT_BURST_SPEED_VARIANCE,
+        size: 4.6,
+        sizeVariance: DEFAULT_BURST_SIZE_VARIANCE,
+        directionRadians: -Math.PI / 2,
+        spreadRadians: Math.PI * 0.7,
+        palette: ['#38bdf8', '#ffffff', '#67e8f9'],
+        lifeSeconds: 0.38,
+        drag: 1.35,
+      });
     }
 
     const bounceVelocity = computePaddleBounceVelocity(
@@ -668,11 +753,18 @@ export class Game {
           ball.speedPixelsPerSecond * 1.03,
         );
         this.audio.brickHit(this.combo, false, brick.kind);
+        this.screenShake.addTrauma(0.38);
+        this.spawnShockwave(collision.contactX, collision.contactY, 32, '#eab308', 2.5);
         this.particles.burst(collision.contactX, collision.contactY, {
-          count: 6,
-          speed: 110,
-          color: '#eab308',
-          lifeSeconds: 0.3,
+          count: 16,
+          speed: 185,
+          speedVariance: DEFAULT_BURST_SPEED_VARIANCE,
+          size: 5,
+          sizeVariance: DEFAULT_BURST_SIZE_VARIANCE,
+          palette: ['#eab308', '#fef08a', '#ffffff'],
+          lifeSeconds: 0.42,
+          gravity: 140,
+          drag: 1.3,
         });
         break;
       }
@@ -692,7 +784,8 @@ export class Game {
 
       if (ball.parryBoostActive) {
         ball.parryBoostActive = false;
-        this.spawnShockwave(collision.contactX, collision.contactY, 44, '#fde047', 3);
+        this.screenShake.addTrauma(0.55);
+        this.spawnShockwave(collision.contactX, collision.contactY, 56, '#fde047', 3.5);
       }
 
       this.applyDamageToBrick(brick, damage);
@@ -724,12 +817,20 @@ export class Game {
 
     if (brick.hitPoints > 0) {
       this.audio.brickHit(this.combo, false, brick.kind);
-      this.screenShake.addTrauma(0.12);
+      this.screenShake.addTrauma(0.46);
+      this.spawnShockwave(brickCenterX, brickCenterY, 30, brick.color, 2.2);
       this.particles.burst(brickCenterX, brickCenterY, {
-        count: 8,
-        speed: 120,
-        color: brick.color,
-        lifeSeconds: 0.35,
+        count: 18,
+        speed: 195,
+        speedVariance: DEFAULT_BURST_SPEED_VARIANCE,
+        size: 5,
+        sizeVariance: DEFAULT_BURST_SIZE_VARIANCE,
+        spreadRadius: 12,
+        palette: [brick.color, '#ffffff', '#e2e8f0'],
+        lifeSeconds: 0.45,
+        lifeVariance: 0.3,
+        gravity: 170,
+        drag: 1.3,
       });
       return;
     }
@@ -748,15 +849,17 @@ export class Game {
     this.chargeFever(FEVER_CHARGE_PER_BRICK);
 
     this.audio.brickHit(this.combo, true, brick.kind);
-    this.screenShake.addTrauma(brick.kind === 'core' ? 0.45 : 0.2);
+    const comboTrauma = Math.min(0.85, 0.54 + this.combo * 0.04);
+    this.screenShake.addTrauma(brick.kind === 'core' ? 0.92 : comboTrauma);
 
-    this.particles.burst(brickCenterX, brickCenterY, {
-      count: brick.kind === 'core' ? 28 : 14,
-      speed: brick.kind === 'core' ? 210 : 150,
-      color: brick.color,
-      lifeSeconds: 0.55,
-      gravity: 140,
-    });
+    this.emitBrickShatterParticles(brick, brickCenterX, brickCenterY);
+    this.spawnShockwave(
+      brickCenterX,
+      brickCenterY,
+      brick.kind === 'core' ? 92 : 42,
+      brick.kind === 'core' ? '#f472b6' : brick.color,
+      brick.kind === 'core' ? 4.5 : 2.5,
+    );
 
     const calloutText =
       this.combo >= 4 ? `+${awardedPoints} (${this.combo}x)` : `+${awardedPoints}`;
@@ -773,20 +876,76 @@ export class Game {
       this.triggerNovaExplosion(brickCenterX, brickCenterY);
     } else if (brick.kind === 'splitter') {
       this.spawnSplitterShards(brickCenterX, brickCenterY);
-    } else if (brick.kind === 'core') {
-      this.spawnShockwave(brickCenterX, brickCenterY, 84, '#f472b6', 4);
     }
+  }
+
+  private emitBrickShatterParticles(
+    brick: BrickEntity,
+    brickCenterX: number,
+    brickCenterY: number,
+  ): void {
+    const isCore = brick.kind === 'core';
+    // Layer 1: High-velocity neon laser streaks across the brick footprint
+    this.particles.burst(brickCenterX, brickCenterY, {
+      count: isCore ? 42 : 24,
+      speed: isCore ? 320 : 245,
+      speedVariance: 0.65,
+      size: isCore ? 6.5 : 5.5,
+      sizeVariance: DEFAULT_BURST_SIZE_VARIANCE,
+      lifeSeconds: 0.65,
+      lifeVariance: 0.35,
+      spreadRadius: 18,
+      palette: [brick.color, brick.color, '#ffffff', '#67e8f9'],
+      gravity: 165,
+      drag: 1.35,
+    });
+
+    // Layer 2: White-hot core starburst flash
+    this.particles.burst(brickCenterX, brickCenterY, {
+      count: isCore ? 18 : 10,
+      speed: 155,
+      speedVariance: DEFAULT_BURST_SPEED_VARIANCE,
+      size: 6.5,
+      sizeVariance: DEFAULT_BURST_SIZE_VARIANCE,
+      lifeSeconds: 0.36,
+      spreadRadius: 10,
+      palette: ['#ffffff', '#fef08a'],
+      drag: 2.1,
+    });
+
+    // Layer 3: Heavy tumbling synthwave prism embers
+    this.particles.burst(brickCenterX, brickCenterY, {
+      count: isCore ? 20 : 12,
+      speed: 115,
+      speedVariance: DEFAULT_BURST_SPEED_VARIANCE,
+      size: 4.8,
+      sizeVariance: DEFAULT_BURST_SIZE_VARIANCE,
+      lifeSeconds: 0.85,
+      lifeVariance: 0.3,
+      spreadRadius: 16,
+      palette: [brick.color, '#f472b6', '#fde047', '#38bdf8'],
+      gravity: 340,
+      drag: 0.55,
+    });
   }
 
   private triggerNovaExplosion(originX: number, originY: number): void {
     this.audio.explosion();
-    this.screenShake.addTrauma(0.55);
-    this.spawnShockwave(originX, originY, NOVA_EXPLOSION_RADIUS_PIXELS, '#fb923c', 4);
+    this.screenShake.addTrauma(0.95);
+    this.spawnShockwave(originX, originY, NOVA_EXPLOSION_RADIUS_PIXELS, '#fb923c', 4.5);
+    this.spawnShockwave(originX, originY, NOVA_EXPLOSION_RADIUS_PIXELS * 0.65, '#fef08a', 3);
     this.particles.burst(originX, originY, {
-      count: 26,
-      speed: 220,
-      color: '#fb923c',
-      lifeSeconds: 0.65,
+      count: 52,
+      speed: 295,
+      speedVariance: 0.7,
+      size: 6.5,
+      sizeVariance: 0.5,
+      spreadRadius: 16,
+      palette: ['#fb923c', '#fef08a', '#ef4444', '#ffffff'],
+      lifeSeconds: 0.75,
+      lifeVariance: 0.35,
+      gravity: 150,
+      drag: 1.25,
     });
     this.floatingTexts.spawn(originX, originY - 10, 'NOVA BLAST!', '#fb923c');
 
@@ -844,6 +1003,7 @@ export class Game {
           } else {
             brick.flashTimerSeconds = 0.1;
             this.audio.wallHit();
+            this.screenShake.addTrauma(0.24);
           }
           break;
         }
@@ -874,6 +1034,7 @@ export class Game {
   private activatePowerUp(capsule: PowerUpCapsule): void {
     const specification = getPowerUpSpecification(capsule.kind);
     this.audio.powerUpCollect(capsule.kind);
+    this.screenShake.addTrauma(0.34);
     this.addScore(150 * this.multiplier);
     this.floatingTexts.spawn(
       capsule.x + capsule.width / 2,
@@ -881,11 +1042,18 @@ export class Game {
       specification.displayName.toUpperCase(),
       specification.color,
     );
+    this.spawnShockwave(capsule.x + capsule.width / 2, this.paddle.y, 48, specification.color, 3);
     this.particles.burst(capsule.x + capsule.width / 2, this.paddle.y, {
-      count: 14,
-      speed: 150,
-      color: specification.color,
-      lifeSeconds: 0.45,
+      count: 24,
+      speed: 210,
+      speedVariance: 0.55,
+      size: 5.5,
+      sizeVariance: 0.4,
+      spreadRadius: 10,
+      palette: [specification.color, '#ffffff', '#fde047'],
+      lifeSeconds: 0.55,
+      gravity: 130,
+      drag: 1.2,
     });
 
     switch (capsule.kind) {
@@ -950,7 +1118,7 @@ export class Game {
     this.combo = 0;
     this.recalculateMultiplier();
     this.audio.ballLost();
-    this.screenShake.addTrauma(0.5);
+    this.screenShake.addTrauma(0.82);
 
     if (this.lives <= 0) {
       this.lives = 0;
@@ -964,9 +1132,22 @@ export class Game {
 
   private advanceStage(): void {
     this.audio.stageClear();
+    this.screenShake.addTrauma(0.7);
     this.addScore(500 * this.stageNumber);
     const nextStageNumber = this.stageNumber + 1;
     this.loadStage(nextStageNumber, true);
+    this.particles.burst(PLAY_FIELD_WIDTH / 2, PLAY_FIELD_HEIGHT / 2, {
+      count: 44,
+      speed: 260,
+      speedVariance: 0.65,
+      size: 6,
+      sizeVariance: 0.45,
+      spreadRadius: 24,
+      palette: ['#38bdf8', '#f472b6', '#fde047', '#c084fc', '#ffffff'],
+      lifeSeconds: 0.8,
+      gravity: 120,
+      drag: 1.1,
+    });
     this.floatingTexts.spawn(
       PLAY_FIELD_WIDTH / 2,
       PLAY_FIELD_HEIGHT / 2,
@@ -1000,7 +1181,20 @@ export class Game {
       this.feverRemainingSeconds = FEVER_DURATION_SECONDS;
       this.recalculateMultiplier();
       this.audio.feverStart();
-      this.spawnShockwave(PLAY_FIELD_WIDTH / 2, PLAY_FIELD_HEIGHT / 2, 180, '#f472b6', 4);
+      this.screenShake.addTrauma(0.78);
+      this.spawnShockwave(PLAY_FIELD_WIDTH / 2, PLAY_FIELD_HEIGHT / 2, 180, '#f472b6', 4.5);
+      this.particles.burst(PLAY_FIELD_WIDTH / 2, PLAY_FIELD_HEIGHT / 2, {
+        count: 40,
+        speed: 250,
+        speedVariance: 0.65,
+        size: 6,
+        sizeVariance: 0.45,
+        spreadRadius: 20,
+        palette: ['#f472b6', '#fde047', '#38bdf8', '#ffffff'],
+        lifeSeconds: 0.75,
+        gravity: 110,
+        drag: 1.1,
+      });
       this.floatingTexts.spawn(
         PLAY_FIELD_WIDTH / 2,
         PLAY_FIELD_HEIGHT / 2 - 20,

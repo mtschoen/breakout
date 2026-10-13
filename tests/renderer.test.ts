@@ -258,7 +258,10 @@ function createSampleRenderView(overrides: Partial<RenderView> = {}): RenderView
       },
     ],
     stars: [{ x: 40, y: 50, size: 2, alpha: 0.8, color: '#67e8f9' }],
-    particles: [{ x: 100, y: 110, size: 4, color: '#38bdf8', alpha: 0.9 }],
+    particles: [
+      { x: 100, y: 110, velocityX: 180, velocityY: -220, size: 4, color: '#38bdf8', alpha: 0.9 },
+      { x: 140, y: 150, size: 3, color: '#f472b6', alpha: 0.7 },
+    ],
     floatingTexts: [{ x: 120, y: 85, text: '+250', color: '#fde047', alpha: 0.95 }],
     ...overrides,
   };

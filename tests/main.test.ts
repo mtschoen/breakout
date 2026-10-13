@@ -11,6 +11,7 @@ interface FakeElement {
   width: number;
   height: number;
   dataset: Record<string, string>;
+  style: { transform: string };
   attributes: Map<string, string>;
   children: FakeElement[];
   listeners: Map<string, EventListener[]>;
@@ -90,6 +91,7 @@ function createFakeElement(
     width: 480,
     height: 640,
     dataset: {},
+    style: { transform: '' },
     attributes,
     children,
     listeners,
@@ -354,6 +356,10 @@ describe('Application cabinet bootstrap (src/main.ts)', () => {
       frame(200 + life * 16);
     }
     expect(secondRun.game.getSnapshot().state).toBe('over');
+    const stageFrames = allElements.filter((element) => element.className === 'stage-frame');
+    expect(stageFrames.some((element) => element.style.transform.startsWith('translate('))).toBe(
+      true,
+    );
 
     // Test autoBoot when readyState is loading
     fakeDocument.readyState = 'loading';

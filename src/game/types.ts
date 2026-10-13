@@ -188,6 +188,8 @@ export interface StarView {
 export interface RenderParticleView {
   x: number;
   y: number;
+  velocityX?: number;
+  velocityY?: number;
   size: number;
   color: string;
   alpha: number;
