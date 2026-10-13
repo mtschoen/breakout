@@ -453,6 +453,7 @@ describe('MusicEngine', () => {
     expect(() => {
       silentMusic.start();
       silentMusic.scheduleStep(0, 0);
+      silentMusic.scheduleStep(4, 0);
       silentMusic.stop();
     }).not.toThrow();
   });
@@ -468,7 +469,7 @@ describe('MusicEngine', () => {
     expect(musicEngine.intensity).toBe(0);
   });
 
-  it('starts and stops playing state and resumes suspended context', () => {
+  it('starts and stops playing state and resumes suspended context', async () => {
     expect(fakeAudioContext.state).toBe('suspended');
     expect(musicEngine.isPlaying).toBe(false);
 
@@ -476,6 +477,11 @@ describe('MusicEngine', () => {
     expect(musicEngine.isPlaying).toBe(true);
     expect(fakeAudioContext.state).toBe('running');
 
+    musicEngine.stop();
+    fakeAudioContext.state = 'suspended';
+    fakeAudioContext.resume = () => Promise.reject(new Error('Autoplay blocked'));
+    musicEngine.start();
+    await Promise.resolve();
     musicEngine.stop();
     expect(musicEngine.isPlaying).toBe(false);
   });
@@ -526,6 +532,7 @@ describe('MusicEngine', () => {
     // Step 0 has lead melody note (MIDI 69)
     const beforeCount = fakeAudioContext.createdOscillators.length;
     musicEngine.scheduleStep(0, 3.0);
+    musicEngine.scheduleStep(1, 3.12);
     const afterCount = fakeAudioContext.createdOscillators.length;
 
     // Must include lead oscillator in addition to kick, bass, and chord stab
@@ -542,6 +549,8 @@ describe('MusicEngine', () => {
 
   it('re-attaches context and resumes scheduling if playing', () => {
     musicEngine.start();
+    fakeAudioContext.currentTime = 0.5;
+    vi.advanceTimersByTime(40);
     expect(musicEngine.isPlaying).toBe(true);
 
     const secondContext = new FakeAudioContext();
@@ -742,5 +751,30 @@ describe('AudioEngine', () => {
     expect(audioEngine.isMuted).toBe(false);
 
     await audioEngine.dispose();
+  });
+
+  it('handles AudioContext constructor and createGain failures gracefully', async () => {
+    const globalHolder = globalThis as unknown as {
+      AudioContext?: unknown;
+    };
+    globalHolder.AudioContext = class {
+      public constructor() {
+        throw new Error('Blocked by autoplay policy');
+      }
+    };
+
+    const failingEngine = new AudioEngine();
+    await failingEngine.resume();
+    expect(failingEngine.hasContext).toBe(false);
+    await failingEngine.resume();
+
+    globalHolder.AudioContext = class extends FakeAudioContext {
+      public override createGain(): ReturnType<FakeAudioContext['createGain']> {
+        throw new Error('Gain creation failed');
+      }
+    };
+    const gainFailingEngine = new AudioEngine();
+    await gainFailingEngine.resume();
+    expect(gainFailingEngine.hasContext).toBe(true);
   });
 });

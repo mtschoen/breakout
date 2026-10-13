@@ -8,9 +8,6 @@ interface AudioContextConstructorHolder {
 }
 
 function resolveAudioContextConstructor(): typeof AudioContext | null {
-  if (typeof globalThis === 'undefined') {
-    return null;
-  }
   const holder = globalThis as unknown as AudioContextConstructorHolder;
   return holder.AudioContext ?? holder.webkitAudioContext ?? null;
 }

@@ -246,17 +246,11 @@ export class MusicEngine {
   }
 
   private beginScheduling(): void {
-    if (this.audioContext === null || this.musicGainNode === null) {
-      this.playing = false;
-      return;
-    }
-    this.musicGainNode.gain.setTargetAtTime(
-      0.24 + this.intensityValue * 0.08,
-      this.audioContext.currentTime,
-      0.05,
-    );
+    const context = this.audioContext!;
+    const gainNode = this.musicGainNode!;
+    gainNode.gain.setTargetAtTime(0.24 + this.intensityValue * 0.08, context.currentTime, 0.05);
     this.currentStepIndex = 0;
-    this.nextNoteTimeSeconds = this.audioContext.currentTime + 0.05;
+    this.nextNoteTimeSeconds = context.currentTime + 0.05;
     this.scheduleAhead();
     this.schedulerTimer = setInterval(() => {
       this.scheduleAhead();
@@ -271,10 +265,8 @@ export class MusicEngine {
   }
 
   private scheduleAhead(): void {
-    if (!this.playing || this.audioContext === null) {
-      return;
-    }
-    while (this.nextNoteTimeSeconds < this.audioContext.currentTime + SCHEDULE_AHEAD_SECONDS) {
+    const context = this.audioContext!;
+    while (this.nextNoteTimeSeconds < context.currentTime + SCHEDULE_AHEAD_SECONDS) {
       this.scheduleStep(this.currentStepIndex, this.nextNoteTimeSeconds);
       this.nextNoteTimeSeconds += SECONDS_PER_STEP;
       this.currentStepIndex = (this.currentStepIndex + 1) % TOTAL_STEP_COUNT;

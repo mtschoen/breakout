@@ -9,3 +9,4 @@ coverage/
 !.maintenance.json
 preview.log
 *.local
+.aislop/history.jsonl

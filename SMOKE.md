@@ -23,7 +23,7 @@ Verify: ESLint and Prettier report `0` findings, and all Vitest unit tests pass 
 
 In the browser:
 
-1. Press `Enter` or click **Launch Prism** to start Stage 1.
+1. Press `Enter` or click **Launch Run** to start Stage 1.
 2. Steer the paddle with `ArrowLeft`/`ArrowRight` (or `A`/`D` or mouse drag) and press `Space` to launch the ball.
 3. Confirm bricks shatter with particles, floating score text, ascending combo audio tones, and trauma screen shake.
 4. Press `Space` right as the ball reaches the paddle to trigger a **Parry Boost** (`PARRY!` popup and charged ball trail).
