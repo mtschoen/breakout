@@ -47,3 +47,7 @@ npm run build        # TypeScript check + production build in dist/
 npm run build:pages  # Production build with /breakout/ GitHub Pages base
 npm run preview      # Serve production build on http://127.0.0.1:4175
 ```
+
+## How it was made
+
+Prism Breakout: Shatterwave was made 2026-10-13 with the Antigravity CLI (`agy`), model Gemini 4 Argon at high effort. Development took about six hours (first prompt 11:59, exit 18:04 PDT), driven across 16 prompts and 4 subagents. The session wrapped with 19 commits and about 165 passing tests, locking in the procedural synth audio, particle juice, and brick mechanics.
